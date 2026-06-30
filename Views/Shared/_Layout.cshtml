@@ -1,0 +1,153 @@
+@using EmployeeLeaveManagementSystem.Services
+@{
+    var currentRole = AuthSession.GetRole(Context.Session);
+    var currentName = Context.Session.GetString(AuthSession.UserNameKey) ?? "Guest";
+    var isSignedIn = AuthSession.IsSignedIn(Context.Session);
+    var pageTitle = ViewData["Title"]?.ToString() ?? "Dashboard";
+    var isEmployee = string.Equals(currentRole, "Employee", StringComparison.OrdinalIgnoreCase);
+    var isManager = string.Equals(currentRole, "Manager", StringComparison.OrdinalIgnoreCase);
+    var isHr = AuthSession.IsHrRole(currentRole);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@pageTitle - Employee Leave Management System</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/EmployeeLeaveManagementSystem.styles.css" asp-append-version="true" />
+</head>
+<body class="hrms-body">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="app-frame">
+        <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+            <div class="sidebar-brand">
+                <a class="brand-mark" asp-area="" asp-controller="Auth" asp-action="Login">
+                    <span>EL</span>
+                    <strong>LeaveOps</strong>
+                </a>
+                <button class="icon-button sidebar-close" type="button" data-sidebar-toggle aria-label="Close navigation">
+                    <span aria-hidden="true">x</span>
+                </button>
+            </div>
+
+            <nav class="side-nav">
+                @if (!isSignedIn)
+                {
+                    <a asp-controller="Auth" asp-action="Login">
+                        <span class="nav-icon" aria-hidden="true">-></span>
+                        <span>Login</span>
+                    </a>
+                    <a asp-controller="Auth" asp-action="Register">
+                        <span class="nav-icon" aria-hidden="true">+</span>
+                        <span>Create Account</span>
+                    </a>
+                }
+                else if (isEmployee)
+                {
+                    <a asp-controller="EmployeeDashboard" asp-action="Index">
+                        <span class="nav-icon" aria-hidden="true">D</span>
+                        <span>Dashboard</span>
+                    </a>
+                    <a asp-controller="Home" asp-action="Index">
+                        <span class="nav-icon" aria-hidden="true">L</span>
+                        <span>Apply Leave</span>
+                    </a>
+                }
+                else if (isManager)
+                {
+                    <a asp-controller="ManagerDashboard" asp-action="Index">
+                        <span class="nav-icon" aria-hidden="true">T</span>
+                        <span>Team Requests</span>
+                    </a>
+                }
+                else if (isHr)
+                {
+                    <a asp-controller="HrDashboard" asp-action="Index">
+                        <span class="nav-icon" aria-hidden="true">H</span>
+                        <span>HR Dashboard</span>
+                    </a>
+                    <a asp-controller="Admin" asp-action="Index">
+                        <span class="nav-icon" aria-hidden="true">A</span>
+                        <span>SQL Requests</span>
+                    </a>
+                }
+            </nav>
+
+            @if (isSignedIn)
+            {
+                <div class="sidebar-profile">
+                    <div class="avatar" data-avatar="@currentName"></div>
+                    <div>
+                        <strong>@currentName</strong>
+                        <span>@currentRole</span>
+                    </div>
+                </div>
+            }
+        </aside>
+
+        <div class="sidebar-backdrop" data-sidebar-toggle></div>
+
+        <div class="app-content">
+            <header class="app-topbar">
+                <div class="topbar-left">
+                    <button class="icon-button" type="button" data-sidebar-toggle aria-label="Open navigation">
+                        <span aria-hidden="true">=</span>
+                    </button>
+                    <div>
+                        <nav class="breadcrumbs" aria-label="Breadcrumb">
+                            <a asp-controller="Auth" asp-action="Login">Home</a>
+                            <span aria-hidden="true">/</span>
+                            <span>@pageTitle</span>
+                        </nav>
+                        <h1>@pageTitle</h1>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    <button class="icon-button" type="button" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">
+                        <span aria-hidden="true">◐</span>
+                    </button>
+                    <button class="notification-button" type="button" data-notification-toggle aria-label="Open notifications" title="Notifications">
+                        <span aria-hidden="true">!</span>
+                        <span class="notification-count" data-notification-count>0</span>
+                    </button>
+                    @if (isSignedIn)
+                    {
+                        <form asp-controller="Auth" asp-action="Logout" method="post" class="nav-logout-form">
+                            <button type="submit" class="nav-button">Logout</button>
+                        </form>
+                    }
+                </div>
+            </header>
+
+            <section class="notification-center" data-notification-center hidden>
+                <div class="section-heading compact-heading">
+                    <h3>Notifications</h3>
+                    <span>Email and workflow status</span>
+                </div>
+                <div class="notification-list">
+                    <p>No unread notifications.</p>
+                </div>
+            </section>
+
+            <main id="main-content" role="main" class="app-main page-transition">
+                @RenderBody()
+            </main>
+
+            <footer class="app-footer">
+                <span>&copy; 2026 Employee Leave Management System</span>
+                <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            </footer>
+        </div>
+    </div>
+
+    <div class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

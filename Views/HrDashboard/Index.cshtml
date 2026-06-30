@@ -1,0 +1,425 @@
+@using System.Globalization
+@model EmployeeLeaveManagementSystem.Models.HrDashboardViewModel
+@{
+    ViewData["Title"] = "HR Dashboard";
+    var today = DateOnly.FromDateTime(DateTime.Now);
+    var totalRequests = Model.Requests.Count;
+    var acceptedRequests = Model.Requests.Count(request => request.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase));
+    var rejectedRequests = Model.Requests.Count(request => request.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase));
+    var pendingRequests = Model.Requests.Count(request => request.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase));
+    var hrCount = Model.ActiveUsers.Count(user => user.Role.Equals("HR", StringComparison.OrdinalIgnoreCase));
+    var adminCount = Model.ActiveUsers.Count(user => user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase));
+    var onLeaveToday = Model.Requests
+        .Where(request => request.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase)
+            && request.FromDate <= today
+            && request.ToDate >= today)
+        .ToList();
+    var onLeaveKeys = onLeaveToday
+        .SelectMany(request => new[] { request.EmployeeId, request.EmployeeEmail })
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var selectedUser = Model.SelectedUser;
+    var selectedSummary = Model.SelectedEmployee;
+    var firstOfMonth = new DateOnly(today.Year, today.Month, 1);
+    var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
+    var startOffset = (int)firstOfMonth.DayOfWeek;
+    var approvalRate = acceptedRequests + rejectedRequests == 0
+        ? 0
+        : (int)Math.Round(acceptedRequests * 100d / (acceptedRequests + rejectedRequests));
+    var departmentGroups = Model.ActiveUsers
+        .GroupBy(user => string.IsNullOrWhiteSpace(user.Department) ? "Unassigned" : user.Department)
+        .OrderByDescending(group => group.Count())
+        .Take(5)
+        .ToList();
+}
+
+<section class="page-shell dashboard-shell hrms-dashboard" data-auto-refresh="true">
+    <div class="dashboard-hero glass-panel">
+        <div>
+            <p class="eyebrow">@Model.CurrentUserRole Dashboard</p>
+            <h2>People and Leave Control</h2>
+            <p>Approve registrations, manage access, monitor leave demand, and keep HR operations moving from one workspace.</p>
+        </div>
+        <div class="dashboard-actions">
+            <form asp-controller="HrDashboard" asp-action="ResetData" method="post" data-confirm="Reset all leave requests and HR decisions?">
+                <button type="submit" class="btn btn-danger">Reset Leave Data</button>
+            </form>
+            <form asp-controller="HrDashboard" asp-action="Logout" method="post">
+                <button type="submit" class="btn btn-secondary">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-error">@TempData["ErrorMessage"]</div>
+    }
+
+    <section class="metric-grid" aria-label="Dashboard metrics">
+        <article class="metric-card">
+            <span>Total Employees</span>
+            <strong data-counter="@Model.EmployeeCount">0</strong>
+        </article>
+        <article class="metric-card">
+            <span>Managers</span>
+            <strong data-counter="@Model.ManagerCount">0</strong>
+        </article>
+        <article class="metric-card">
+            <span>HR</span>
+            <strong data-counter="@hrCount">0</strong>
+        </article>
+        <article class="metric-card">
+            <span>Admins</span>
+            <strong data-counter="@adminCount">0</strong>
+        </article>
+        <article class="metric-card">
+            <span>On Leave Today</span>
+            <strong data-counter="@onLeaveToday.Count">0</strong>
+        </article>
+        <article class="metric-card">
+            <span>Pending Leave</span>
+            <strong data-counter="@pendingRequests">0</strong>
+        </article>
+        <article class="metric-card">
+            <span>Pending Registrations</span>
+            <strong data-counter="@Model.PendingRegistrations.Count">0</strong>
+        </article>
+    </section>
+
+    <section class="toolbar-panel glass-panel">
+        <form asp-controller="HrDashboard" asp-action="Index" method="get" class="employee-search modern-search">
+            <div class="floating-field">
+                <input id="employeeId" name="employeeId" class="form-control" value="@Model.SearchEmployeeId" placeholder=" " />
+                <label for="employeeId">Search Employee ID or Email</label>
+            </div>
+            <div class="search-actions">
+                <button type="submit" class="btn">Search</button>
+                @if (Model.IsSearchActive)
+                {
+                    <a class="btn btn-secondary" asp-controller="HrDashboard" asp-action="Index">Clear</a>
+                }
+            </div>
+        </form>
+        <div class="filter-tools">
+            <input class="form-control" type="search" placeholder="Instant filter people and leave" data-filter-input aria-label="Instant filter dashboard" />
+            <select class="form-control" data-status-filter aria-label="Filter leave requests by status">
+                <option value="">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Accepted">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+    </section>
+
+    @if (selectedUser != null || selectedSummary != null)
+    {
+        <section class="profile-panel glass-panel">
+            <div class="profile-cover"></div>
+            <div class="profile-content">
+                <div class="avatar avatar-xl" data-initials="@Initials(selectedUser?.Name ?? selectedSummary?.EmployeeName ?? "Employee")"></div>
+                <div>
+                    <p class="eyebrow">Employee Profile</p>
+                    <h2>@(selectedUser?.Name ?? selectedSummary?.EmployeeName)</h2>
+                    <p>@(selectedUser?.EmployeeId ?? selectedSummary?.EmployeeId) - @(selectedUser?.Email ?? selectedSummary?.EmployeeEmail)</p>
+                </div>
+                <div class="profile-stats">
+                    <div><span>Department</span><strong>@(selectedUser?.Department ?? selectedSummary?.EmployeeDepartment)</strong></div>
+                    <div><span>Role</span><strong>@(selectedUser?.Role ?? selectedSummary?.EmployeeRole)</strong></div>
+                    <div><span>Leave History</span><strong>@(selectedSummary?.TotalRequests ?? 0) request(s)</strong></div>
+                    <div><span>Approved</span><strong>@(selectedSummary?.ApprovedLeaveDays ?? 0) day(s)</strong></div>
+                </div>
+            </div>
+        </section>
+    }
+
+    <section class="management-panel glass-panel">
+        <div class="section-heading compact-heading">
+            <h3>Pending Employee Registrations</h3>
+            <span>@Model.PendingRegistrations.Count pending</span>
+        </div>
+
+        @if (Model.PendingRegistrations.Count == 0)
+        {
+            <div class="empty-state compact-empty">No pending employee registrations.</div>
+        }
+        else
+        {
+            <div class="pending-grid">
+                @foreach (var user in Model.PendingRegistrations)
+                {
+                    <article class="pending-card" data-filter-item>
+                        <div class="employee-card-head">
+                            <div class="avatar" data-initials="@Initials(user.Name)"></div>
+                            <div>
+                                <strong>@user.Name</strong>
+                                <span>@user.Email</span>
+                            </div>
+                        </div>
+                        <dl>
+                            <dt>Department</dt>
+                            <dd>@user.Department</dd>
+                            <dt>Designation</dt>
+                            <dd>@user.JobTitle</dd>
+                            <dt>Requested</dt>
+                            <dd title="@user.CreatedAtUtc.ToLocalTime().ToString("O")">@DateTimeText(user.CreatedAtUtc)</dd>
+                        </dl>
+                        <div class="table-actions">
+                            <form asp-controller="HrDashboard" asp-action="ApproveRegistration" method="post">
+                                <input type="hidden" name="userId" value="@user.UserId" />
+                                <button type="submit" class="btn btn-accept btn-small">Approve</button>
+                            </form>
+                            <form asp-controller="HrDashboard" asp-action="RejectRegistration" method="post" data-confirm="Reject this employee registration?">
+                                <input type="hidden" name="userId" value="@user.UserId" />
+                                <button type="submit" class="btn btn-reject btn-small">Reject</button>
+                            </form>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="split-grid">
+        <div class="glass-panel">
+            <div class="section-heading compact-heading">
+                <h3>Employee Directory</h3>
+                <span>@Model.ActiveUsers.Count active</span>
+            </div>
+            <div class="employee-card-grid">
+                @foreach (var user in Model.ActiveUsers)
+                {
+                    var isOnLeave = onLeaveKeys.Contains(user.EmployeeId) || onLeaveKeys.Contains(user.Email);
+                    var canEditRole = Model.AssignableRoles.Any(role =>
+                        role.Equals(user.Role, StringComparison.OrdinalIgnoreCase));
+                    <article class="employee-card" data-filter-item>
+                        <div class="employee-card-head">
+                            <div class="avatar" data-initials="@Initials(user.Name)"></div>
+                            <div>
+                                <strong>@user.Name</strong>
+                                <span>@user.EmployeeId</span>
+                            </div>
+                            <span class="status-badge @(isOnLeave ? "status-onleave" : "status-active")">@(isOnLeave ? "On Leave" : user.Status)</span>
+                        </div>
+                        <div class="employee-card-meta">
+                            <span>Department</span><strong>@user.Department</strong>
+                            <span>Designation</span><strong>@user.JobTitle</strong>
+                            <span>Join Date</span><strong>@DateTimeText(user.CreatedAtUtc)</strong>
+                        </div>
+                        <div class="quick-actions">
+                            <a class="btn btn-secondary btn-small" asp-controller="HrDashboard" asp-action="Index" asp-route-employeeId="@user.EmployeeId">View</a>
+                            @if (canEditRole)
+                            {
+                                <form asp-controller="HrDashboard" asp-action="UpdateRole" method="post" class="role-form">
+                                    <input type="hidden" name="userId" value="@user.UserId" />
+                                    <select name="role" class="form-control role-select" aria-label="Role for @user.Name">
+                                        @foreach (var role in Model.AssignableRoles)
+                                        {
+                                            <option value="@role" selected="@(role.Equals(user.Role, StringComparison.OrdinalIgnoreCase))">@role</option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="btn btn-small">Save</button>
+                                </form>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        </div>
+
+        <div class="glass-panel">
+            <div class="section-heading compact-heading">
+                <h3>@today.ToString("MMMM yyyy", CultureInfo.InvariantCulture) Calendar</h3>
+                <span>Leave, holidays, team activity</span>
+            </div>
+            <div class="calendar-legend">
+                <span><i class="legend-dot holiday"></i>Public Holiday</span>
+                <span><i class="legend-dot approved"></i>Approved Leave</span>
+                <span><i class="legend-dot team"></i>Team Leave</span>
+                <span><i class="legend-dot birthday"></i>Birthday</span>
+            </div>
+            <div class="calendar-grid" role="grid" aria-label="Monthly leave calendar">
+                @foreach (var dayName in new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" })
+                {
+                    <span class="calendar-weekday">@dayName</span>
+                }
+                @for (var blank = 0; blank < startOffset; blank++)
+                {
+                    <span class="calendar-cell calendar-empty"></span>
+                }
+                @for (var day = 1; day <= daysInMonth; day++)
+                {
+                    var date = new DateOnly(today.Year, today.Month, day);
+                    var dayRequests = Model.Requests
+                        .Where(request => request.FromDate <= date && request.ToDate >= date)
+                        .ToList();
+                    var approved = dayRequests.Any(request => request.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase));
+                    var pending = dayRequests.Any(request => request.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase));
+                    var eventText = dayRequests.Count == 0
+                        ? "No leave records"
+                        : string.Join(" | ", dayRequests.Select(request => $"{request.EmployeeName}: {StatusLabel(request.Status)} ({DateText(request.FromDate)} - {DateText(request.ToDate)})"));
+                    <button type="button"
+                            class="calendar-cell @(date == today ? "is-today" : "") @(approved ? "has-approved" : "") @(pending ? "has-team" : "")"
+                            data-calendar-date="@DateText(date)"
+                            data-calendar-events="@eventText">
+                        <span>@day</span>
+                        @if (dayRequests.Count > 0)
+                        {
+                            <small>@dayRequests.Count</small>
+                        }
+                    </button>
+                }
+            </div>
+            <div class="calendar-detail" data-calendar-detail>
+                <strong>@DateText(today)</strong>
+                <span>Select a highlighted date to view leave details.</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="analytics-grid">
+        <article class="chart-card glass-panel">
+            <div class="section-heading compact-heading">
+                <h3>Monthly Leave Trends</h3>
+                <span>@totalRequests request(s)</span>
+            </div>
+            <div class="mini-bars">
+                @for (var i = 5; i >= 0; i--)
+                {
+                    var month = DateTime.Today.AddMonths(-i);
+                    var count = Model.Requests.Count(request => request.SubmittedAtUtc.ToLocalTime().Month == month.Month
+                        && request.SubmittedAtUtc.ToLocalTime().Year == month.Year);
+                    var height = Math.Max(10, Math.Min(100, count * 18));
+                    <div style="--bar:@height%">
+                        <span></span>
+                        <small>@month.ToString("MMM", CultureInfo.InvariantCulture)</small>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="chart-card glass-panel">
+            <div class="section-heading compact-heading">
+                <h3>Department-wise Leave</h3>
+                <span>Top departments</span>
+            </div>
+            <div class="stack-list">
+                @foreach (var group in departmentGroups)
+                {
+                    var width = Model.ActiveUsers.Count == 0 ? 0 : (int)Math.Round(group.Count() * 100d / Model.ActiveUsers.Count);
+                    <div>
+                        <span>@group.Key</span>
+                        <strong>@group.Count()</strong>
+                        <i style="--w:@width%"></i>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="chart-card glass-panel">
+            <div class="section-heading compact-heading">
+                <h3>Approval Rate</h3>
+                <span>@approvalRate%</span>
+            </div>
+            <div class="progress-ring xl" style="--value:@approvalRate">
+                <strong>@approvalRate%</strong>
+                <span>approved</span>
+            </div>
+        </article>
+    </section>
+
+    <section class="glass-panel">
+        <div class="section-heading compact-heading">
+            <h3>Leave Requests</h3>
+            <span>@Model.Requests.Count request(s)</span>
+        </div>
+
+        @if (Model.Requests.Count == 0)
+        {
+            <div class="empty-state">No leave requests yet.</div>
+        }
+        else
+        {
+            <div class="request-card-grid">
+                @foreach (var request in Model.Requests)
+                {
+                    var statusClass = request.Status.ToLowerInvariant();
+                    <article class="leave-card" data-filter-item data-status="@request.Status">
+                        <div class="leave-card-head">
+                            <div class="avatar" data-initials="@Initials(request.EmployeeName)"></div>
+                            <div>
+                                <strong>@request.EmployeeName</strong>
+                                <span>@request.EmployeeId - @request.EmployeeEmail</span>
+                            </div>
+                            <span class="status-badge status-@statusClass">@StatusLabel(request.Status)</span>
+                        </div>
+                        <div class="request-grid">
+                            <div><span>Leave Type</span><strong>General Leave</strong></div>
+                            <div><span>Leave Duration</span><strong>@DateText(request.FromDate) - @DateText(request.ToDate)</strong></div>
+                            <div><span>Start Date</span><strong>@DateText(request.FromDate)</strong></div>
+                            <div><span>End Date</span><strong>@DateText(request.ToDate)</strong></div>
+                            <div><span>Applied Date</span><strong title="@request.SubmittedAtUtc.ToLocalTime().ToString("O")">@DateTimeText(request.SubmittedAtUtc)</strong></div>
+                            <div><span>Department</span><strong>@(string.IsNullOrWhiteSpace(request.EmployeeDepartment) ? "Not recorded" : request.EmployeeDepartment)</strong></div>
+                        </div>
+                        <p class="request-reason">@request.Reason</p>
+
+                        @if (request.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <form asp-controller="HrDashboard" asp-action="Decide" method="post" class="decision-form">
+                                <input type="hidden" name="requestId" value="@request.RequestId" />
+                                <div class="floating-field">
+                                    <textarea name="comment" class="form-control" rows="2" placeholder=" "></textarea>
+                                    <label>Optional HR comment</label>
+                                </div>
+                                <div class="decision-actions">
+                                    <button class="btn btn-accept" type="submit" name="decision" value="Accepted">Approve</button>
+                                    <button class="btn btn-reject" type="submit" name="decision" value="Rejected">Reject</button>
+                                </div>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="decision-summary">
+                                Decided @(request.DecidedAtUtc is null ? "Not recorded" : DateTimeText(request.DecidedAtUtc.Value))
+                                @if (!string.IsNullOrWhiteSpace(request.DecisionComment))
+                                {
+                                    <span> - @request.DecisionComment</span>
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+@functions {
+    private static string DateText(DateOnly date)
+    {
+        return date.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    }
+
+    private static string DateTimeText(DateTimeOffset date)
+    {
+        return date.ToLocalTime().ToString("dd MMM yyyy, h:mm tt", CultureInfo.InvariantCulture);
+    }
+
+    private static string StatusLabel(string status)
+    {
+        return status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) ? "Approved" : status;
+    }
+
+    private static string Initials(string value)
+    {
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+            return "EL";
+
+        return string.Concat(parts.Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    }
+}

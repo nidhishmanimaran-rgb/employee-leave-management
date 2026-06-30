@@ -1,0 +1,133 @@
+@using System.Globalization
+@model EmployeeLeaveManagementSystem.Models.ManagerDashboardViewModel
+@{
+    ViewData["Title"] = "Manager Dashboard";
+}
+
+<section class="page-shell dashboard-shell" data-auto-refresh="true">
+    <div class="dashboard-hero glass-panel">
+        <div>
+            <p class="eyebrow">Manager Dashboard</p>
+            <h2>Team Leave Requests</h2>
+            <p>@Model.User.Name - @Model.User.Department</p>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-error">@TempData["ErrorMessage"]</div>
+    }
+
+    <section class="metric-grid">
+        <article class="metric-card"><span>Team Members</span><strong data-counter="@Model.TeamMembers.Count">0</strong></article>
+        <article class="metric-card"><span>Total Requests</span><strong data-counter="@Model.TeamRequests.Count">0</strong></article>
+        <article class="metric-card"><span>Pending</span><strong data-counter="@Model.PendingRequests">0</strong></article>
+        <article class="metric-card"><span>Approved</span><strong data-counter="@Model.AcceptedRequests">0</strong></article>
+        <article class="metric-card"><span>Rejected</span><strong data-counter="@Model.RejectedRequests">0</strong></article>
+    </section>
+
+    <section class="toolbar-panel glass-panel">
+        <input class="form-control" type="search" placeholder="Search team leave requests" data-filter-input aria-label="Search team leave requests" />
+        <select class="form-control" data-status-filter aria-label="Filter team leave requests by status">
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Accepted">Approved</option>
+            <option value="Rejected">Rejected</option>
+        </select>
+    </section>
+
+    <section class="glass-panel">
+        <div class="section-heading compact-heading">
+            <h3>Team Requests</h3>
+            <span>@Model.TeamRequests.Count request(s)</span>
+        </div>
+
+        @if (Model.TeamRequests.Count == 0)
+        {
+            <div class="empty-state">No leave requests from your team yet.</div>
+        }
+        else
+        {
+            <div class="request-card-grid">
+                @foreach (var request in Model.TeamRequests)
+                {
+                    var statusClass = request.Status.ToLowerInvariant();
+                    <article class="leave-card" data-filter-item data-status="@request.Status">
+                        <div class="leave-card-head">
+                            <div class="avatar" data-initials="@Initials(request.EmployeeName)"></div>
+                            <div>
+                                <strong>@request.EmployeeName</strong>
+                                <span>@request.EmployeeId - @request.EmployeeRole, @request.EmployeeDepartment</span>
+                            </div>
+                            <span class="status-badge status-@statusClass">@StatusLabel(request.Status)</span>
+                        </div>
+
+                        <div class="request-grid">
+                            <div><span>Email</span><strong>@request.EmployeeEmail</strong></div>
+                            <div><span>Leave Type</span><strong>General Leave</strong></div>
+                            <div><span>Leave Duration</span><strong>@DateText(request.FromDate) - @DateText(request.ToDate)</strong></div>
+                            <div><span>Start Date</span><strong>@DateText(request.FromDate)</strong></div>
+                            <div><span>End Date</span><strong>@DateText(request.ToDate)</strong></div>
+                            <div><span>Applied Date</span><strong title="@request.SubmittedAtUtc.ToLocalTime().ToString("O")">@DateTimeText(request.SubmittedAtUtc)</strong></div>
+                        </div>
+
+                        <p class="request-reason">@request.Reason</p>
+
+                        @if (request.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <form asp-controller="ManagerDashboard" asp-action="Decide" method="post" class="decision-form">
+                                <input type="hidden" name="requestId" value="@request.RequestId" />
+                                <div class="floating-field">
+                                    <textarea name="comment" class="form-control" rows="2" placeholder=" "></textarea>
+                                    <label>Optional manager comment</label>
+                                </div>
+                                <div class="decision-actions">
+                                    <button class="btn btn-accept" type="submit" name="decision" value="Accepted">Approve</button>
+                                    <button class="btn btn-reject" type="submit" name="decision" value="Rejected">Reject</button>
+                                </div>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="decision-summary">
+                                Decided @(request.DecidedAtUtc is null ? "Not recorded" : DateTimeText(request.DecidedAtUtc.Value))
+                                @if (!string.IsNullOrWhiteSpace(request.DecisionComment))
+                                {
+                                    <span> - @request.DecisionComment</span>
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+@functions {
+    private static string DateText(DateOnly date)
+    {
+        return date.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    }
+
+    private static string DateTimeText(DateTimeOffset date)
+    {
+        return date.ToLocalTime().ToString("dd MMM yyyy, h:mm tt", CultureInfo.InvariantCulture);
+    }
+
+    private static string StatusLabel(string status)
+    {
+        return status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) ? "Approved" : status;
+    }
+
+    private static string Initials(string value)
+    {
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 0 ? "EL" : string.Concat(parts.Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    }
+}

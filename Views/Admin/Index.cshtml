@@ -1,0 +1,79 @@
+@using System.Globalization
+@model List<EmployeeLeaveManagementSystem.Controllers.AdminController.LeaveRequestRow>
+
+@{
+    ViewData["Title"] = "SQL Leave Requests";
+}
+
+<section class="page-shell dashboard-shell">
+    <div class="dashboard-hero glass-panel">
+        <div>
+            <p class="eyebrow">SQL Database</p>
+            <h2>Leave Request Records</h2>
+            <p>Direct SQL-backed view of submitted leave requests and their current workflow status.</p>
+        </div>
+        <div class="dashboard-actions">
+            <button class="btn btn-secondary" type="button" data-export="csv" data-export-target="#admin-requests-table">Export CSV</button>
+            <button class="btn btn-secondary" type="button" data-export="excel" data-export-target="#admin-requests-table">Export Excel</button>
+            <button class="btn btn-secondary" type="button" data-export="pdf" data-export-target="#admin-requests-table">Export PDF</button>
+        </div>
+    </div>
+
+    @if (Model is null || Model.Count == 0)
+    {
+        <div class="empty-state">No leave requests found in SQL Server.</div>
+    }
+    else
+    {
+        <section class="toolbar-panel glass-panel">
+            <input class="form-control" type="search" placeholder="Search SQL leave requests" data-filter-input aria-label="Search SQL leave requests" />
+            <select class="form-control" data-status-filter aria-label="Filter SQL leave requests by status">
+                <option value="">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Accepted">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </section>
+
+        <section class="glass-panel table-panel">
+            <div class="summary-table-wrap">
+                <table id="admin-requests-table" class="summary-table interactive-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="number">Id</th>
+                            <th data-sort="text">Employee Name</th>
+                            <th data-sort="text">Employee Email</th>
+                            <th data-sort="date">From Date</th>
+                            <th data-sort="date">To Date</th>
+                            <th data-sort="text">Status</th>
+                            <th data-sort="date">Submitted</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr data-filter-item data-status="@item.Status">
+                                <td>@item.Id</td>
+                                <td>@item.EmployeeName</td>
+                                <td>@item.EmployeeEmail</td>
+                                <td>@item.FromDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)</td>
+                                <td>@item.ToDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)</td>
+                                <td><span class="status-badge status-@item.Status.ToLowerInvariant()">@StatusLabel(item.Status)</span></td>
+                                <td>@item.SubmittedAtUtc.ToLocalTime().ToString("dd MMM yyyy, h:mm tt", CultureInfo.InvariantCulture)</td>
+                                <td>@item.Reason</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@functions {
+    private static string StatusLabel(string status)
+    {
+        return status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) ? "Approved" : status;
+    }
+}

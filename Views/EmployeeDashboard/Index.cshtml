@@ -1,0 +1,164 @@
+@using System.Globalization
+@model EmployeeLeaveManagementSystem.Models.EmployeeDashboardViewModel
+@{
+    ViewData["Title"] = "Employee Dashboard";
+    var usedPercent = Model.LeaveBalanceDays == 0
+        ? 0
+        : (int)Math.Round(Model.ApprovedLeaveDays * 100d / Model.LeaveBalanceDays);
+    var remainingPercent = Model.LeaveBalanceDays == 0
+        ? 0
+        : (int)Math.Round(Model.RemainingLeaveDays * 100d / Model.LeaveBalanceDays);
+}
+
+<section class="page-shell dashboard-shell employee-workspace" data-auto-refresh="true">
+    <div class="profile-panel glass-panel">
+        <div class="profile-cover"></div>
+        <div class="profile-content">
+            <div class="avatar avatar-xl" data-initials="@Initials(Model.User.Name)"></div>
+            <div>
+                <p class="eyebrow">Welcome</p>
+                <h2>@Model.User.Name</h2>
+                <p>@Model.User.EmployeeId - @Model.User.JobTitle, @Model.User.Department</p>
+            </div>
+            <div class="profile-stats">
+                <div><span>Status</span><strong>Active</strong></div>
+                <div><span>Manager</span><strong>@(string.IsNullOrWhiteSpace(Model.User.ManagerEmail) ? "Not assigned" : Model.User.ManagerEmail)</strong></div>
+                <div><span>Join Date</span><strong>@DateTimeText(Model.User.CreatedAtUtc)</strong></div>
+                <div><span>Attendance</span><strong>Regular</strong></div>
+            </div>
+            <a class="btn" asp-controller="Home" asp-action="Index">Apply Leave</a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-error">@TempData["ErrorMessage"]</div>
+    }
+
+    <section class="leave-balance-grid">
+        <article class="balance-card glass-panel">
+            <div class="progress-ring" style="--value:@remainingPercent">
+                <strong>@Model.RemainingLeaveDays</strong>
+                <span>days</span>
+            </div>
+            <div>
+                <h3>Remaining Leave</h3>
+                <p>@remainingPercent% available from @Model.LeaveBalanceDays total days</p>
+            </div>
+        </article>
+        <article class="balance-card glass-panel">
+            <div class="progress-ring" style="--value:35">
+                <strong>CL</strong>
+                <span>35%</span>
+            </div>
+            <div>
+                <h3>Casual Leave</h3>
+                <p>Planned personal time</p>
+            </div>
+        </article>
+        <article class="balance-card glass-panel">
+            <div class="progress-ring" style="--value:25">
+                <strong>SL</strong>
+                <span>25%</span>
+            </div>
+            <div>
+                <h3>Sick Leave</h3>
+                <p>Health-related leave</p>
+            </div>
+        </article>
+        <article class="balance-card glass-panel">
+            <div class="progress-ring" style="--value:@usedPercent">
+                <strong>@usedPercent%</strong>
+                <span>used</span>
+            </div>
+            <div>
+                <h3>Earned Leave</h3>
+                <p>@Model.ApprovedLeaveDays approved day(s)</p>
+            </div>
+        </article>
+    </section>
+
+    <section class="metric-grid">
+        <article class="metric-card"><span>Total Requests</span><strong data-counter="@Model.Requests.Count">0</strong></article>
+        <article class="metric-card"><span>Pending Leave</span><strong data-counter="@Model.PendingRequests">0</strong></article>
+        <article class="metric-card"><span>Approved Days</span><strong data-counter="@Model.ApprovedLeaveDays">0</strong></article>
+        <article class="metric-card"><span>Rejected Requests</span><strong data-counter="@Model.RejectedRequests">0</strong></article>
+    </section>
+
+    <section class="toolbar-panel glass-panel">
+        <input class="form-control" type="search" placeholder="Search leave history" data-filter-input aria-label="Search leave history" />
+        <select class="form-control" data-status-filter aria-label="Filter leave history by status">
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Accepted">Approved</option>
+            <option value="Rejected">Rejected</option>
+        </select>
+    </section>
+
+    <section class="glass-panel">
+        <div class="section-heading compact-heading">
+            <h3>Leave History</h3>
+            <span>@Model.Requests.Count request(s)</span>
+        </div>
+
+        @if (Model.Requests.Count == 0)
+        {
+            <div class="empty-state">No leave history yet.</div>
+        }
+        else
+        {
+            <div class="request-card-grid">
+                @foreach (var request in Model.Requests)
+                {
+                    var statusClass = request.Status.ToLowerInvariant();
+                    <article class="leave-card" data-filter-item data-status="@request.Status">
+                        <div class="leave-card-head">
+                            <div class="avatar" data-initials="@Initials(request.EmployeeName)"></div>
+                            <div>
+                                <strong>@DateText(request.FromDate) - @DateText(request.ToDate)</strong>
+                                <span>@request.Reason</span>
+                            </div>
+                            <span class="status-badge status-@statusClass">@StatusLabel(request.Status)</span>
+                        </div>
+                        <div class="request-grid">
+                            <div><span>Leave Type</span><strong>General Leave</strong></div>
+                            <div><span>Start Date</span><strong>@DateText(request.FromDate)</strong></div>
+                            <div><span>End Date</span><strong>@DateText(request.ToDate)</strong></div>
+                            <div><span>Applied Date</span><strong title="@request.SubmittedAtUtc.ToLocalTime().ToString("O")">@DateTimeText(request.SubmittedAtUtc)</strong></div>
+                            <div><span>Decision</span><strong>@(request.DecidedAtUtc is null ? "Pending" : DateTimeText(request.DecidedAtUtc.Value))</strong></div>
+                            <div><span>Comment</span><strong>@(string.IsNullOrWhiteSpace(request.DecisionComment) ? "None" : request.DecisionComment)</strong></div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+@functions {
+    private static string DateText(DateOnly date)
+    {
+        return date.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    }
+
+    private static string DateTimeText(DateTimeOffset date)
+    {
+        return date.ToLocalTime().ToString("dd MMM yyyy, h:mm tt", CultureInfo.InvariantCulture);
+    }
+
+    private static string StatusLabel(string status)
+    {
+        return status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) ? "Approved" : status;
+    }
+
+    private static string Initials(string value)
+    {
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 0 ? "EL" : string.Concat(parts.Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    }
+}

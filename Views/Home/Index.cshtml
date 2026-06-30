@@ -1,0 +1,109 @@
+@model EmployeeLeaveManagementSystem.Models.LeaveRequest
+@{
+    ViewData["Title"] = "Apply Leave";
+}
+
+<section class="page-shell leave-application">
+    <div class="dashboard-hero glass-panel">
+        <div>
+            <p class="eyebrow">Employee Portal</p>
+            <h2>Apply Leave</h2>
+            <p>Your profile is locked from your approved account. Choose the leave dates and submit for review.</p>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-error">@TempData["ErrorMessage"]</div>
+    }
+
+    <form method="post" class="glass-panel leave-form modern-form">
+        <div class="form-section">
+            <div class="section-title">
+                <h2>Employee Details</h2>
+                <span>Profile</span>
+            </div>
+
+            <div class="floating-field">
+                <input asp-for="EmployeeId" class="form-control" placeholder=" " readonly />
+                <label asp-for="EmployeeId">Employee ID</label>
+                <span asp-validation-for="EmployeeId" class="validation"></span>
+            </div>
+
+            <div class="field-grid two-columns">
+                <div class="floating-field">
+                    <input asp-for="EmployeeRole" class="form-control" placeholder=" " readonly />
+                    <label asp-for="EmployeeRole">Designation</label>
+                    <span asp-validation-for="EmployeeRole" class="validation"></span>
+                </div>
+
+                <div class="floating-field">
+                    <input asp-for="EmployeeDepartment" class="form-control" placeholder=" " readonly />
+                    <label asp-for="EmployeeDepartment">Department</label>
+                    <span asp-validation-for="EmployeeDepartment" class="validation"></span>
+                </div>
+            </div>
+
+            <div class="field-grid two-columns">
+                <div class="floating-field">
+                    <input asp-for="EmployeeName" class="form-control" placeholder=" " readonly />
+                    <label asp-for="EmployeeName">Employee Name</label>
+                    <span asp-validation-for="EmployeeName" class="validation"></span>
+                </div>
+
+                <div class="floating-field">
+                    <input asp-for="EmployeeEmail" class="form-control" placeholder=" " readonly />
+                    <label asp-for="EmployeeEmail">Employee Email</label>
+                    <span asp-validation-for="EmployeeEmail" class="validation"></span>
+                </div>
+            </div>
+
+            <div class="floating-field">
+                <input asp-for="EmployeePhone" class="form-control" placeholder=" " readonly />
+                <label asp-for="EmployeePhone">Employee Phone</label>
+                <span asp-validation-for="EmployeePhone" class="validation"></span>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <div class="section-title">
+                <h2>Leave Details</h2>
+                <span>Request</span>
+            </div>
+
+            <div class="field-grid two-columns">
+                <div class="floating-field">
+                    <input asp-for="FromDate" type="date" class="form-control" placeholder=" " />
+                    <label asp-for="FromDate">Start Date</label>
+                    <span asp-validation-for="FromDate" class="validation"></span>
+                </div>
+
+                <div class="floating-field">
+                    <input asp-for="ToDate" type="date" class="form-control" placeholder=" " />
+                    <label asp-for="ToDate">End Date</label>
+                    <span asp-validation-for="ToDate" class="validation"></span>
+                </div>
+            </div>
+
+            <div class="floating-field">
+                <textarea asp-for="Reason" class="form-control" rows="5" placeholder=" "></textarea>
+                <label asp-for="Reason">Reason</label>
+                <span asp-validation-for="Reason" class="validation"></span>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn">Submit Request</button>
+            <span>Request is saved to SQL Server before HR email is sent.</span>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
